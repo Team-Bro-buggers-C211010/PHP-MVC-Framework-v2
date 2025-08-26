@@ -28,17 +28,17 @@ class Router
         $this->add('GET', $path, $handler);
     }
 
-    public function post(string $path, callable $handler): void
+    public function post(string $path, $handler): void
     {
         $this->add('POST', $path, $handler);
     }
 
-    public function put(string $path, callable $handler): void
+    public function put(string $path, $handler): void
     {
         $this->add('PUT', $path, $handler);
     }
 
-    public function delete(string $path, callable $handler): void
+    public function delete(string $path, $handler): void
     {
         $this->add('DELETE', $path, $handler);
     }
@@ -48,34 +48,59 @@ class Router
         $path = parse_url($uri, PHP_URL_PATH);
         $method = strtoupper($method);
 
-        $handler = $this->routes[$method][$path] ?? null;
-
-        if (!$handler) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Route not found']);
+        if (!isset($this->routes[$method])) {
+            $this->response->sendStatusCode(404);
+            $this->response->setContent(['error' => 'Route not found']);
             return;
         }
 
-        try {
-            $params = $method === 'GET' ? $_GET : $_POST;
+        $found = false;
+        foreach ($this->routes[$method] as $routePath => $handler) {
+            // Create regex pattern for dynamic routes (e.g., /users/:id)
+            $pattern = preg_replace('/\//', '\\/', $routePath);
+            $pattern = preg_replace('/\:(\w+)/', '(?P<$1>[^\/]+)', $pattern);
+            $pattern = '/^' . $pattern . '$/';
 
-            // Handle [ClassName::class, 'method'] format
-            if (is_array($handler) && is_string($handler[0]) && class_exists($handler[0])) {
-                $controller = new $handler[0]($this->request, $this->response);
-                call_user_func([$controller, $handler[1]], $params);
+            if (preg_match($pattern, $path, $matches)) {
+                $found = true;
+
+                // Extract route params (e.g., ['id' => '1'])
+                $routeParams = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
+
+                // Get body for POST/PUT (JSON), query for GET/DELETE
+                $body = in_array($method, ['POST', 'PUT']) ? $this->request->input() : [];
+                $query = $_GET;
+
+                // Merge all params into one array
+                $params = array_merge($routeParams, $query, $body);
+
+                try {
+                    // Handle [ClassName::class, 'method'] format
+                    if (is_array($handler) && is_string($handler[0]) && class_exists($handler[0])) {
+                        $controller = new $handler[0]($this->request, $this->response);
+                        call_user_func_array([$controller, $handler[1]], [$params]);
+                    }
+                    // Handle closures or callable functions
+                    elseif (is_callable($handler)) {
+                        call_user_func($handler, $params);
+                    } else {
+                        throw new \Exception("Invalid route handler");
+                    }
+                } catch (\Throwable $e) {
+                    $this->response->sendStatusCode(500);
+                    $this->response->setContent([
+                        'error' => 'Internal server error',
+                        'details' => $e->getMessage()
+                    ]);
+                }
+
+                return;
             }
-            // Handle closures or callable functions
-            elseif (is_callable($handler)) {
-                call_user_func($handler, $params);
-            } else {
-                throw new \Exception("Invalid route handler");
-            }
-        } catch (\Throwable $e) {
-            http_response_code(500);
-            echo json_encode([
-                'error' => 'Internal server error',
-                'details' => $e->getMessage()
-            ]);
+        }
+
+        if (!$found) {
+            $this->response->sendStatusCode(404);
+            $this->response->setContent(['error' => 'Route not found']);
         }
     }
 }
