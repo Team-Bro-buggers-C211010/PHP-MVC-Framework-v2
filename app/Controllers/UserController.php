@@ -20,7 +20,7 @@ class UserController extends BaseController
     // GET /users - Get all users
     public function getUsers($params = [])
     {
-        $users = $this->userModels->find();
+        $users = $this->userModels->find($params);
         $this->response->sendStatusCode(200);
         $this->response->setContent($users);
     }

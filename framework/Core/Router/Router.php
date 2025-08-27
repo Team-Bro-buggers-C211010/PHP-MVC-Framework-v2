@@ -72,7 +72,7 @@ class Router
                 $query = $_GET;
 
                 // Merge all params into one array
-                $params = array_merge($routeParams, $query, $body);
+                $params = $this->request->clean(array_merge($routeParams, $query, $body));
 
                 try {
                     // Handle [ClassName::class, 'method'] format

@@ -130,6 +130,25 @@ class Response
         }
     }
 
+    public function send()
+    {
+        if (!headers_sent()) {
+            foreach ($this->headers as $header) {
+                header($header, true);
+            }
+        }
+
+        http_response_code($this->statusCode);
+
+        if (is_array($this->content)) {
+            echo json_encode($this->content);
+        } elseif (!empty($this->content)) {
+            echo $this->content;
+        }
+
+        exit;
+    }
+
 
     public function render()
     {

@@ -2,7 +2,10 @@
 
 namespace Core\Database;
 
+require_once Framework . 'Helper/Helper.php';
+
 use function Helper\isValidIdentifier;
+
 
 class QueryBuilder
 {
@@ -17,13 +20,33 @@ class QueryBuilder
     }
 
     // Find all records (READ all)
-    public function findAll(): array
+    public function findAll($queryParams): array
     {
         if (!isValidIdentifier($this->tableName)) {
             throw new \InvalidArgumentException("Invalid table name");
         }
 
         $query = "SELECT * FROM `$this->tableName`";
+
+        if (count($queryParams) === 0) {
+            $stmt = $this->conn->query($query);
+            return $stmt ? $stmt->fetchAll() : [];
+        }
+
+        $query .= " WHERE ";
+        $it = 0;
+
+        foreach ($queryParams as $key => $value) {
+            $query .= "`$key` LIKE '%$value%'";
+            if($it < count($queryParams) - 1) {
+                $query .= " OR ";
+            }
+            $it++;
+        }
+
+        // var_dump($query);
+        // die();
+
         $stmt = $this->conn->query($query);
 
         return $stmt ? $stmt->fetchAll() : [];

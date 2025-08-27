@@ -20,6 +20,13 @@ $response->setHeader('Content-Type: application/json; charset=UTF-8');
 
 $router = new Router($response, $request);
 
+if ($request->getMethod() === 'OPTIONS') {
+    $response->setStatusCode(200);
+    $response->send();
+    exit;
+}
+
+
 require_once __DIR__ . '/../routes/web.php';
 
 $router->resolve($request->getUrl(), $request->getMethod());

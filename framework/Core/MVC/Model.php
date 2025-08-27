@@ -20,9 +20,13 @@ class Model
     }
 
     // Find all records
-    public function find()
+    public function find($params)
     {
-        return $this->queryBuilder->findAll();
+        $query = array_filter($params, function ($value, $key) {
+            return $key !== 0;
+        }, ARRAY_FILTER_USE_BOTH);
+
+        return $this->queryBuilder->findAll($query);
     }
 
     // Find record by ID
